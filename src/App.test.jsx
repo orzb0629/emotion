@@ -3,20 +3,29 @@ import { render, screen, fireEvent, within, cleanup, waitFor } from '@testing-li
 import { beforeEach, afterEach, expect, test, vi } from 'vitest';
 import { App } from './main';
 import { characters, categories, subcategories } from './characters';
+import { characters as originalCharacters } from './__fixtures__/original-characters';
 beforeEach(()=>{localStorage.clear();navigator.clipboard.writeText.mockReset().mockResolvedValue(undefined);});
 afterEach(cleanup);
 function nav(name){fireEvent.click(within(screen.getByRole('navigation')).getByRole('button',{name:new RegExp(name)}));}
-test('기본 데이터는 100~150개의 고유 문자이며 모든 카테고리를 포함한다',()=>{
- expect(characters.length).toBeGreaterThanOrEqual(100);expect(characters.length).toBeLessThanOrEqual(150);
+test('확장 데이터의 고유성, 개수, 분류 및 기존 ID와 문자열 보존',()=>{
+ const count = (items, category) => items.filter(x=>x.category===category).length;
+ expect(count(characters,'얼굴 이모티콘')).toBeGreaterThanOrEqual(80);
+ expect(count(characters,'특수문자')-count(originalCharacters,'특수문자')).toBeGreaterThanOrEqual(30);
+ expect(count(characters,'특수문자')-count(originalCharacters,'특수문자')).toBeLessThanOrEqual(50);
+ expect(count(characters,'꾸미기 문자')-count(originalCharacters,'꾸미기 문자')).toBeGreaterThanOrEqual(20);
+ expect(count(characters,'꾸미기 문자')-count(originalCharacters,'꾸미기 문자')).toBeLessThanOrEqual(30);
+ for(const original of originalCharacters) expect(characters.find(x=>x.id===original.id)).toEqual(original);
  expect(new Set(characters.map(x=>x.text)).size).toBe(characters.length);
+ expect(new Set(characters.map(x=>x.text.normalize('NFC').trim())).size).toBe(characters.length);
+ expect(new Set(characters.map(x=>x.id)).size).toBe(characters.length);
  expect(characters.every(x=>!/[가-힣]{2,}/.test(x.text))).toBe(true);
- expect(categories).toHaveLength(3);expect(Object.values(subcategories).flat()).toHaveLength(22);
+ expect(categories).toHaveLength(3);expect(Object.values(subcategories).flat()).toHaveLength(24);
 });
 test('검색 및 세부 카테고리 탐색',()=>{
  render(<App/>);fireEvent.change(screen.getByRole('textbox',{name:'문자 검색'}),{target:{value:'하트'}});
- expect(screen.getAllByRole('button',{name:/ 복사$/})).toHaveLength(6);
+ expect(screen.getAllByRole('button',{name:/ 복사$/})).toHaveLength(characters.filter(x=>x.subcategory==='하트').length);
  fireEvent.click(screen.getByRole('button',{name:'검색어 지우기'}));nav('얼굴 이모티콘');
- fireEvent.click(screen.getByRole('button',{name:'울음'}));expect(screen.getAllByRole('button',{name:/ 복사$/})).toHaveLength(5);
+ fireEvent.click(screen.getByRole('button',{name:'울음'}));expect(screen.getAllByRole('button',{name:/ 복사$/})).toHaveLength(characters.filter(x=>x.subcategory==='울음').length);
 });
 test('카드 클릭 복사와 최근 기록, 즐겨찾기 새로고침 유지',async()=>{
  const {unmount}=render(<App/>);fireEvent.click(screen.getAllByRole('button',{name:'♡ 복사'})[0]);
